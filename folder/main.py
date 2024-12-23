@@ -1,4 +1,3 @@
-from server import gotoindex
 from flask import Flask, render_template,request
 
 app = (__name__) 
