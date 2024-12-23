@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>עולם המשנה</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-size: cover;
+            background-position: center;
+        }
+        .container {
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        h1 {
+            color: #0066cc;
+            font-size: 3em;
+        }
+        #playerNameInput, #backgroundInput {
+            margin: 20px 0;
+            padding: 10px;
+            font-size: 1em;
+        }
+        #startButton, #backgroundButton {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            margin: 10px;
+        }
+        #welcomeMessage {
+            display: none;
+            font-size: 2em;
+            color: #009900;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>עולם המשנה</h1>
+        <input type="text" id="playerNameInput" placeholder="הכנס את שמך">
+        <input type="file" id="backgroundInput" accept="image/*" style="display: none;">
+        <button id="backgroundButton">בחר תמונת רקע</button>
+        <button id="startButton">התחל לשחק!</button>
+        <div id="welcomeMessage"></div>
+    </div>
+    <script>
+        const welcomeMessages = [
+            "ברוך הבא {name}! חיכינו לך",
+            "שלום {name}! נעים מאוד להכיר",
+            "{name}, ברוך הבא לעולם המשנה!",
+            "איזה כיף שהצטרפת אלינו, {name}!",
+            "מוכן להרפתקה, {name}?",
+            "{name}, הגעת בדיוק בזמן!",
+            "ברוכים הבאים לעולם הקסום, {name}!",
+            "{name}, התכונן לחוויה מדהימה!",
+            "שמחים לראותך, {name}!",
+            "{name}, מסע מופלא מחכה לך!"
+        ];
+
+        let backgroundImage = '';
+
+        document.getElementById('backgroundButton').addEventListener('click', function() {
+            document.getElementById('backgroundInput').click();
+        });
+
+        document.getElementById('backgroundInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                backgroundImage = e.target.result;
+                document.body.style.backgroundImage = `url('${backgroundImage}')`;
+                localStorage.setItem('backgroundImage', backgroundImage);
+            };
+
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('startButton').addEventListener('click', function() {
+            const playerName = document.getElementById('playerNameInput').value;
+            if (playerName) {
+                const randomMessage = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+                const personalizedMessage = randomMessage.replace('{name}', playerName);
+                document.getElementById('welcomeMessage').textContent = personalizedMessage;
+                document.getElementById('welcomeMessage').style.display = 'block';
+                document.getElementById('playerNameInput').style.display = 'none';
+                document.getElementById('startButton').style.display = 'none';
+                document.getElementById('backgroundButton').style.display = 'none';
+
+                localStorage.setItem('playerName', playerName);
+
+                setTimeout(function() {
+                    // כאן יש להחליף ל-URL של העמוד הבא
+                    window.location.href = 'world-map.html';
+                }, 3000);
+            }
+        });
+
+        // טעינת תמונת הרקע בעת טעינת העמוד
+        window.onload = function() {
+            const savedBackground = localStorage.getItem('backgroundImage');
+            if (savedBackground) {
+                document.body.style.backgroundImage = `url('${savedBackground}')`;
+                backgroundImage = savedBackground;
+            }
+        };
+    </script>
+</body>
+</html>
