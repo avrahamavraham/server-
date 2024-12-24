@@ -372,7 +372,7 @@
             if (playerIndex !== -1) {
                 const player = players[playerIndex];
                 localStorage.setItem('currentPlayer', JSON.stringify(player));
-                window.location.href = `personal-area.html?name=${encodeURIComponent(playerName)}`;
+                window.location.href = '/personal-areahtml','name=${encodeURIComponent(playerName)}';
             } else {
                 alert('לא נמצא שחקן עם השם הזה');
             }

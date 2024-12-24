@@ -291,7 +291,7 @@ function loadData() {
         }
 
         function goToPlayerList() {
-            window.location.href = 'index.html';
+            window.location.href = '/index';
         }
 
         document.addEventListener('DOMContentLoaded', () => {
