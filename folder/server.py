@@ -13,5 +13,11 @@ def world_map():
     return render_template(
         "world_map.html"
     )
+@app.route('/')
+@app.route('/biet_m')
+def beit_m():
+    return render_template(
+        "beit_m.html"
+    )
 if __name__ == "__main__" :
     app.run(host="0.0.0.0",port = 8000)
