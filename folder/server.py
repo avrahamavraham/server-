@@ -2,8 +2,8 @@ from flask import Flask, render_template,request
 from waitress import serve
 app = Flask(__name__)
 @app.route('/')
-@app.route('/index')
-def index():
+@app.route('/statt new')
+def statt_new():
     return render_template(
         "statt new.html"
     )
