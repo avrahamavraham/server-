@@ -370,29 +370,10 @@
         function goToPersonalArea(playerName) {
             const playerIndex = players.findIndex(p => p.name === playerName);
             if (playerIndex !== -1) {
-                const player = players[playerIndex];
-                localStorage.setItem('currentPlayer', JSON.stringify(player));
-                window.location.href = '/personal-areahtml','name=${encodeURIComponent(playerName)}';
+                window.location.href = `/personal-area?name=${encodeURIComponent(playerName)}`;
             } else {
                 alert('לא נמצא שחקן עם השם הזה');
             }
-        }
-
-        function savePlayers() {
-            localStorage.setItem('players', JSON.stringify(players));
-        }
-
-function loadPlayers() {
-            const savedPlayers = localStorage.getItem('players');
-            if (savedPlayers) {
-                players = JSON.parse(savedPlayers);
-            } else {
-                players = [
-                    { name: 'שחקן 1', level: 1, experience: 50, image: 'https://via.placeholder.com/100' },
-                    { name: 'שחקן 2', level: 2, experience: 150, image: 'https://via.placeholder.com/100' },
-                ];
-            }
-            renderPlayers();
         }
 
         function goToWorldMap() {
@@ -416,21 +397,47 @@ function loadPlayers() {
             }
         }
 
-function changePlayerImage(index) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = function(event) {
-        const file = event.target.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            players[index].image = e.target.result;
-            renderPlayers();
-        };
-        reader.readAsDataURL(file);
-    };
-    input.click();
-}
+        function changePlayerImage(index) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    players[index].image = e.target.result;
+                    renderPlayers();
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        }
+
+        function savePlayers() {
+            fetch('/api/players', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(players)
+            })
+            .then(response => response.json())
+            .catch(error => console.error('Error saving players:', error));
+        }
+
+        function loadPlayers() {
+            fetch('/api/players')
+            .then(response => response.json())
+            .then(data => {
+                players = data || [];
+                renderPlayers();
+            })
+            .catch(error => {
+                console.error('Error loading players:', error);
+                players = [];
+                renderPlayers();
+            });
+        }
 
         // אתחול הרקע הדינמי והטעינת השחקנים
         document.addEventListener('DOMContentLoaded', () => {

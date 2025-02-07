@@ -1,6 +1,60 @@
+from flask import Flask, render_template, request, jsonify
+import json
+import os
 from flask import Flask, render_template,request
 from waitress import serve
+
 app = Flask(__name__)
+
+# Ensure data directory exists
+os.makedirs('data', exist_ok=True)
+PLAYER_DATA_FILE = 'data/playerdata.json'
+
+# Helper function to read player data
+def read_player_data():
+    if os.path.exists(PLAYER_DATA_FILE):
+        with open(PLAYER_DATA_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return []
+
+# Helper function to write player data
+def write_player_data(data):
+    with open(PLAYER_DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+@app.route('/api/players', methods=['GET'])
+def get_players():
+    return jsonify(read_player_data())
+
+@app.route('/api/players', methods=['POST'])
+def save_players():
+    data = request.get_json()
+    write_player_data(data)
+    return jsonify({"status": "success"})
+
+@app.route('/api/player/<name>', methods=['GET'])
+def get_player(name):
+    players = read_player_data()
+    player = next((p for p in players if p.get('name') == name), None)
+    if player:
+        return jsonify(player)
+    return jsonify({}), 404
+
+@app.route('/api/player/<name>', methods=['POST'])
+def update_player(name):
+    data = request.get_json()
+    players = read_player_data()
+    
+    # Find and update or add the player
+    player_index = next((i for i, p in enumerate(players) if p.get('name') == name), None)
+    if player_index is not None:
+        players[player_index] = data
+    else:
+        players.append(data)
+    
+    write_player_data(players)
+    return jsonify({"status": "success"})
+
 @app.route('/')
 @app.route('/statt new')
 def statt_new():
@@ -55,17 +109,10 @@ def map():
     return render_template(
         "map.html"
     )
-@app.route('/')
-@app.route('/personal-areahtml')
-def personal_areahtml():
+@app.route('/personal-area')
+def personal_area():
     return render_template(
         "personal-area.html"
-    )
-@app.route('/')
-@app.route('/personalareatxt')
-def personal_areatxt():
-    return render_template(
-        "personal-area.txt"
     )
 @app.route('/')
 @app.route('/shimosh')

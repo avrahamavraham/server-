@@ -408,7 +408,7 @@
         }
 
         function saveData() {
-            currentPlayer = {
+            const playerData = {
                 name: document.getElementById('playerName').textContent,
                 level: parseInt(document.getElementById('level').textContent),
                 health: parseInt(document.getElementById('health').textContent),
@@ -428,72 +428,74 @@
                 }))
             };
             
-            localStorage.setItem('currentPlayer', JSON.stringify(currentPlayer));
-            updatePlayerInList(currentPlayer);
+            fetch(`/api/player/${encodeURIComponent(playerData.name)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(playerData)
+            })
+            .then(response => response.json())
+            .catch(error => console.error('Error saving player data:', error));
+            
             updateExperienceBar();
-        }
-
-        function updatePlayerInList(playerData) {
-            let allPlayers = JSON.parse(localStorage.getItem('players') || '[]');
-            const index = allPlayers.findIndex(p => p.name === playerData.name);
-            if (index !== -1) {
-                allPlayers[index] = playerData;
-            } else {
-                allPlayers.push(playerData);
-            }
-            localStorage.setItem('players', JSON.stringify(allPlayers));
         }
 
         function loadData() {
             const playerName = new URLSearchParams(window.location.search).get('name');
-            if (playerName) {
-                const allPlayers = JSON.parse(localStorage.getItem('players') || '[]');
-                currentPlayer = allPlayers.find(p => p.name === playerName) || {};
-            } else {
-                currentPlayer = JSON.parse(localStorage.getItem('currentPlayer') || '{}');
+            if (!playerName) {
+                console.error('No player name provided');
+                return;
             }
 
-            if (currentPlayer) {
-                document.getElementById('playerName').textContent = currentPlayer.name || '';
-                document.getElementById('level').textContent = currentPlayer.level || 1;
-                document.getElementById('health').textContent = currentPlayer.health || 100;
-                document.getElementById('experience').textContent = currentPlayer.experience || 0;
-                document.getElementById('strength').value = currentPlayer.strength || 5;
-                document.getElementById('dexterity').value = currentPlayer.dexterity || 5;
-                document.getElementById('wisdom').value = currentPlayer.wisdom || 5;
-                document.getElementById('memory').value = currentPlayer.memory || 5;
-                document.getElementById('coins').textContent = currentPlayer.coins || 0;
+            fetch(`/api/player/${encodeURIComponent(playerName)}`)
+            .then(response => response.json())
+            .then(currentPlayer => {
+                if (currentPlayer && currentPlayer.name) {
+                    document.getElementById('playerName').textContent = currentPlayer.name;
+                    document.getElementById('level').textContent = currentPlayer.level || 1;
+                    document.getElementById('health').textContent = currentPlayer.health || 100;
+                    document.getElementById('experience').textContent = currentPlayer.experience || 0;
+                    document.getElementById('strength').value = currentPlayer.strength || 5;
+                    document.getElementById('dexterity').value = currentPlayer.dexterity || 5;
+                    document.getElementById('wisdom').value = currentPlayer.wisdom || 5;
+                    document.getElementById('memory').value = currentPlayer.memory || 5;
+                    document.getElementById('coins').textContent = currentPlayer.coins || 0;
 
-                const inventory = document.getElementById('inventory');
-                inventory.innerHTML = ''; // ניקוי החפצים הקיימים
-                if (currentPlayer.inventory) {
-                    currentPlayer.inventory.forEach(item => {
-                        const slot = addInventorySlot();
-                        if (item.image) {
-                            slot.style.backgroundImage = item.image;
-                        }
-                        if (item.name) {
-                            slot.querySelector('input').value = item.name;
-                        }
-                    });
-                }
-
-                const specialItems = document.querySelectorAll('.special-items .inventory-slot');
-                if (currentPlayer.specialItems) {
-                    currentPlayer.specialItems.forEach((item, index) => {
-                        if (specialItems[index]) {
+                    const inventory = document.getElementById('inventory');
+                    inventory.innerHTML = ''; // Clear existing inventory
+                    if (currentPlayer.inventory) {
+                        currentPlayer.inventory.forEach(item => {
+                            const slot = addInventorySlot();
                             if (item.image) {
-                                specialItems[index].style.backgroundImage = item.image;
+                                slot.style.backgroundImage = item.image;
                             }
                             if (item.name) {
-                                specialItems[index].querySelector('input').value = item.name;
+                                slot.querySelector('input').value = item.name;
                             }
-                        }
-                    });
-                }
+                        });
+                    }
 
-                updateExperienceBar();
-            }
+                    const specialItems = document.querySelectorAll('.special-items .inventory-slot');
+                    if (currentPlayer.specialItems) {
+                        currentPlayer.specialItems.forEach((item, index) => {
+                            if (specialItems[index]) {
+                                if (item.image) {
+                                    specialItems[index].style.backgroundImage = item.image;
+                                }
+                                if (item.name) {
+                                    specialItems[index].querySelector('input').value = item.name;
+                                }
+                            }
+                        });
+                    }
+
+                    updateExperienceBar();
+                } else {
+                    console.error('Player not found');
+                }
+            })
+            .catch(error => console.error('Error loading player data:', error));
         }
 
         function addInventorySlot() {
