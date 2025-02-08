@@ -230,7 +230,9 @@
         <h1>רשימת שחקנים</h1>
         <button id="worldMapBtn" onclick="goToWorldMap()">חזרה למפת העולם</button>
         <div class="player-grid" id="playerGrid"></div>
+        {% if is_admin %}
         <button class="add-player-btn" onclick="addPlayer()">הוסף שחקן חדש</button>
+        {% endif %}
     </div>
 
     <div id="deleteModal" class="modal">
@@ -248,6 +250,7 @@
         let playerToDelete = null;
         let currentBackground = 0;
         const backgrounds = ['stars-background', 'wave-background', 'particles-background'];
+        const isAdmin = {{ 'true' if is_admin else 'false' }};
 
         function changeBackground() {
             const oldBackground = document.querySelector(`.${backgrounds[currentBackground]}`);
@@ -299,18 +302,24 @@
             const card = document.createElement('div');
             card.className = 'player-card';
             card.innerHTML = `
-                <div class="delete-player" onclick="showDeleteConfirmation(${index})">&#x2715;</div>
+                ${isAdmin ? `
+                    <button class="delete-player" onclick="showDeleteConfirmation(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                ` : ''}
                 <div class="player-image" onclick="changePlayerImage(${index})">
-                    <img src="${player.image || 'https://via.placeholder.com/100'}" alt="${player.name}">
+                    <img src="${player.image || 'static/images/default-avatar.png'}" alt="${player.name}">
                 </div>
-                <h3 contenteditable="true" onblur="updatePlayerName(${index}, this.textContent)">${player.name}</h3>
-                <p>רמה: <span contenteditable="true" onblur="updateLevel(${index}, this.textContent)">${player.level}</span></p>
-                <p>ניסיון: ${player.experience}/${player.level * 100}</p>
+                <h3>${player.name}</h3>
+                <p>רמה: ${player.level}</p>
+                <p>ניסיון: ${player.experience}</p>
                 <div class="progress-bar">
-                    <div class="progress" style="width: ${(player.experience / (player.level * 100)) * 100}%"></div>
+                    <div class="progress" style="width: ${(player.experience / 100) * 100}%"></div>
                 </div>
-                <button onclick="addExperience(${index})">הוסף ניסיון</button>
-                <button onclick="changeLevel(${index})">שנה רמה</button>
+                ${isAdmin ? `
+                    <button onclick="addExperience(${index})">הוסף ניסיון</button>
+                    <button onclick="changeLevel(${index})">שנה רמה</button>
+                ` : ''}
                 <button onclick="goToPersonalArea('${player.name}')">אזור אישי</button>
             `;
             return card;
@@ -326,10 +335,15 @@
         }
 
         function addPlayer() {
+            if (!isAdmin) {
+                alert('רק מנהל יכול להוסיף שחקנים חדשים');
+                return;
+            }
             const name = prompt('הכנס שם שחקן:');
             if (name) {
-                players.push({ name, level: 1, experience: 0, image: 'https://via.placeholder.com/100' });
+                players.push({ name, level: 1, experience: 0, image: 'static/images/default-avatar.png' });
                 renderPlayers();
+                savePlayers();
             }
         }
 
@@ -356,10 +370,6 @@
             updatePlayer(index, { level: parseInt(newLevel) || 1, experience: 0 });
         }
 
-        function updatePlayerName(index, newName) {
-            updatePlayer(index, { name: newName });
-        }
-
         function changeLevel(index) {
             const newLevel = parseInt(prompt('הכנס רמה חדשה:') || players[index].level);
             if (newLevel > 0) {
@@ -381,6 +391,7 @@
         }
 
         function showDeleteConfirmation(index) {
+            if (!isAdmin) return;
             playerToDelete = index;
             document.getElementById('deleteModal').style.display = 'block';
         }
@@ -398,17 +409,21 @@
         }
 
         function changePlayerImage(index) {
+            if (!isAdmin) return;
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
             input.onchange = function(event) {
                 const file = event.target.files[0];
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    players[index].image = e.target.result;
-                    renderPlayers();
-                };
-                reader.readAsDataURL(file);
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        players[index].image = e.target.result;
+                        renderPlayers();
+                        savePlayers();
+                    };
+                    reader.readAsDataURL(file);
+                }
             };
             input.click();
         }
@@ -438,6 +453,9 @@
                 renderPlayers();
             });
         }
+
+        // Set admin status
+        // isAdmin = true; // Change this to false for non-admin users
 
         // אתחול הרקע הדינמי והטעינת השחקנים
         document.addEventListener('DOMContentLoaded', () => {

@@ -55,9 +55,22 @@
             bottom: 20px;
             padding: 10px;
             z-index: 1000;
+            {% if not is_admin %}
+            display: none;
+            {% endif %}
         }
         #add-button { right: 20px; }
         #save-button { right: 120px; }
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            background-color: #666;
+            cursor: se-resize;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -77,16 +90,62 @@
     <script>
         let draggedElement = null;
         let offsetX, offsetY;
+        const isAdmin = {{ 'true' if is_admin else 'false' }};
 
         document.querySelectorAll('.location-button').forEach(button => {
-            button.addEventListener('mousedown', startDragging);
+            if (isAdmin) {
+                button.addEventListener('mousedown', startDragging);
+                // Add resize handle for admin
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+                resizeHandle.style.cssText = `
+                    position: absolute;
+                    bottom: 0;
+                    right: 0;
+                    width: 10px;
+                    height: 10px;
+                    background-color: #666;
+                    cursor: se-resize;
+                    display: none;
+                `;
+                button.appendChild(resizeHandle);
+                button.addEventListener('mouseover', () => resizeHandle.style.display = 'block');
+                button.addEventListener('mouseout', () => resizeHandle.style.display = 'none');
+                
+                // Add resize functionality
+                let isResizing = false;
+                resizeHandle.addEventListener('mousedown', function(e) {
+                    isResizing = true;
+                    e.stopPropagation(); // Prevent dragging when resizing
+                });
+
+                document.addEventListener('mousemove', function(e) {
+                    if (isResizing) {
+                        const rect = button.getBoundingClientRect();
+                        const width = e.clientX - rect.left;
+                        const height = e.clientY - rect.top;
+                        button.style.width = width + 'px';
+                        button.style.height = height + 'px';
+                    }
+                });
+
+                document.addEventListener('mouseup', function() {
+                    isResizing = false;
+                });
+            }
+            
             button.addEventListener('click', function(e) {
                 if (!draggedElement) {
                     handleLocationClick(this.id);
                 }
             });
+            
             button.addEventListener('contextmenu', function(e) {
                 e.preventDefault();
+                if (!isAdmin) {
+                    alert('רק מנהל יכול למחוק ריבועים');
+                    return;
+                }
                 if (confirm('האם אתה בטוח שברצונך למחוק ריבוע זה?')) {
                     this.remove();
                 }
@@ -100,6 +159,10 @@
         document.getElementById('save-button').addEventListener('click', saveChanges);
 
         function startDragging(e) {
+            if (!isAdmin) {
+                alert('רק מנהל יכול להזיז ריבועים');
+                return;
+            }
             draggedElement = this;
             offsetX = e.clientX - this.getBoundingClientRect().left;
             offsetY = e.clientY - this.getBoundingClientRect().top;
@@ -107,7 +170,7 @@
         }
 
         function drag(e) {
-            if (draggedElement) {
+            if (draggedElement && isAdmin) {
                 e.preventDefault();
                 const mapRect = document.getElementById('map').getBoundingClientRect();
                 let x = e.clientX - mapRect.left - offsetX;
@@ -126,6 +189,99 @@
                 draggedElement.style.cursor = 'move';
                 draggedElement = null;
             }
+        }
+
+        function addNewSquare() {
+            if (!isAdmin) {
+                alert('רק מנהל יכול להוסיף ריבועים חדשים');
+                return;
+            }
+            const newId = 'new-square-' + Date.now();
+            const newSquare = document.createElement('button');
+            newSquare.className = 'location-button';
+            newSquare.id = newId;
+            newSquare.textContent = 'ריבוע חדש';
+            newSquare.style.top = '50%';
+            newSquare.style.left = '50%';
+            
+            if (isAdmin) {
+                newSquare.addEventListener('mousedown', startDragging);
+                // Add resize handle for new squares
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+                resizeHandle.style.cssText = `
+                    position: absolute;
+                    bottom: 0;
+                    right: 0;
+                    width: 10px;
+                    height: 10px;
+                    background-color: #666;
+                    cursor: se-resize;
+                    display: none;
+                `;
+                newSquare.appendChild(resizeHandle);
+                newSquare.addEventListener('mouseover', () => resizeHandle.style.display = 'block');
+                newSquare.addEventListener('mouseout', () => resizeHandle.style.display = 'none');
+
+                // Add resize functionality
+                let isResizing = false;
+                resizeHandle.addEventListener('mousedown', function(e) {
+                    isResizing = true;
+                    e.stopPropagation();
+                });
+
+                document.addEventListener('mousemove', function(e) {
+                    if (isResizing) {
+                        const rect = newSquare.getBoundingClientRect();
+                        const width = e.clientX - rect.left;
+                        const height = e.clientY - rect.top;
+                        newSquare.style.width = width + 'px';
+                        newSquare.style.height = height + 'px';
+                    }
+                });
+
+                document.addEventListener('mouseup', function() {
+                    isResizing = false;
+                });
+            }
+            
+            newSquare.addEventListener('click', function(e) {
+                if (!draggedElement) {
+                    handleLocationClick(this.id);
+                }
+            });
+            
+            newSquare.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (!isAdmin) {
+                    alert('רק מנהל יכול למחוק ריבועים');
+                    return;
+                }
+                if (confirm('האם אתה בטוח שברצונך למחוק ריבוע זה?')) {
+                    this.remove();
+                }
+            });
+
+            document.getElementById('map').appendChild(newSquare);
+        }
+
+        function saveChanges() {
+            if (!isAdmin) {
+                alert('רק מנהל יכול לשמור שינויים');
+                return;
+            }
+            const buttons = document.querySelectorAll('.location-button');
+            const buttonsData = Array.from(buttons).map(button => ({
+                id: button.id,
+                text: button.textContent,
+                top: button.style.top,
+                left: button.style.left,
+                width: button.style.width,
+                height: button.style.height
+            }));
+            
+            console.log('נתוני הכפתורים לשמירה:', JSON.stringify(buttonsData));
+            alert('השינויים נשמרו!');
         }
 
         function handleLocationClick(locationId) {
@@ -149,45 +305,6 @@
                 default:
                     console.log('לחצת על: ' + document.getElementById(locationId).textContent);
             }
-        }
-
-        function addNewSquare() {
-            const newId = 'new-square-' + Date.now();
-            const newSquare = document.createElement('button');
-            newSquare.className = 'location-button';
-            newSquare.id = newId;
-            newSquare.textContent = 'ריבוע חדש';
-            newSquare.style.top = '50%';
-            newSquare.style.left = '50%';
-            
-            newSquare.addEventListener('mousedown', startDragging);
-            newSquare.addEventListener('click', function(e) {
-                if (!draggedElement) {
-                    handleLocationClick(this.id);
-                }
-            });
-            newSquare.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                if (confirm('האם אתה בטוח שברצונך למחוק ריבוע זה?')) {
-                    this.remove();
-                }
-            });
-
-            document.getElementById('map').appendChild(newSquare);
-        }
-
-        function saveChanges() {
-            const buttons = document.querySelectorAll('.location-button');
-            const buttonsData = Array.from(buttons).map(button => ({
-                id: button.id,
-                text: button.textContent,
-                top: button.style.top,
-                left: button.style.left
-            }));
-            
-            console.log('נתוני הכפתורים לשמירה:', JSON.stringify(buttonsData));
-            // כאן תוכל להוסיף קוד לשמירת הנתונים בשרת או במערכת אחסון מקומית
-            alert('השינויים נשמרו!');
         }
     </script>
 </body>

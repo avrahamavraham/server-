@@ -1,14 +1,16 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import json
 import os
-from flask import Flask, render_template,request
 from waitress import serve
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = 'your-secret-key-here'  # Required for session management
 
 # Ensure data directory exists
 os.makedirs('data', exist_ok=True)
 PLAYER_DATA_FILE = 'data/playerdata.json'
+USER_DATA_FILE = 'data/userpassword.json'
 
 # Helper function to read player data
 def read_player_data():
@@ -21,6 +23,29 @@ def read_player_data():
 def write_player_data(data):
     with open(PLAYER_DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+def ensure_admin_exists():
+    try:
+        with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
+            users_data = json.load(f)
+    except FileNotFoundError:
+        users_data = {'users': []}
+
+    # Remove any existing admin user
+    users_data['users'] = [user for user in users_data['users'] if user['username'] != 'admin']
+    
+    # Add admin user with password '123'
+    admin_password = generate_password_hash('123')
+    users_data['users'].append({
+        'username': 'admin',
+        'password': admin_password
+    })
+
+    with open(USER_DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(users_data, f, ensure_ascii=False, indent=4)
+
+# Call this when the server starts
+ensure_admin_exists()
 
 @app.route('/api/players', methods=['GET'])
 def get_players():
@@ -55,6 +80,64 @@ def update_player(name):
     write_player_data(players)
     return jsonify({"status": "success"})
 
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'message': 'חסרים שם משתמש או סיסמה'}), 400
+
+    # Don't allow registration of admin username
+    if username.lower() == 'admin':
+        return jsonify({'message': 'שם משתמש זה שמור למערכת'}), 400
+
+    try:
+        with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
+            users_data = json.load(f)
+    except FileNotFoundError:
+        users_data = {'users': []}
+
+    # Check if username already exists
+    if any(user['username'] == username for user in users_data['users']):
+        return jsonify({'message': 'שם המשתמש כבר קיים במערכת'}), 400
+
+    # Hash the password and store the new user
+    hashed_password = generate_password_hash(password)
+    users_data['users'].append({
+        'username': username,
+        'password': hashed_password
+    })
+
+    with open(USER_DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(users_data, f, ensure_ascii=False, indent=4)
+
+    return jsonify({'message': 'ההרשמה בוצעה בהצלחה'}), 200
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'message': 'חסרים שם משתמש או סיסמה'}), 400
+
+    try:
+        with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
+            users_data = json.load(f)
+    except FileNotFoundError:
+        return jsonify({'message': 'שגיאה במערכת'}), 500
+
+    # Find user and verify password
+    user = next((user for user in users_data['users'] if user['username'] == username), None)
+    if user and check_password_hash(user['password'], password):
+        session['username'] = username
+        return jsonify({'message': 'התחברת בהצלחה'}), 200
+    
+    return jsonify({'message': 'שם משתמש או סיסמה שגויים'}), 401
+
 @app.route('/')
 @app.route('/statt new')
 def statt_new():
@@ -64,9 +147,8 @@ def statt_new():
 @app.route('/')
 @app.route('/world_map')
 def world_map():
-    return render_template(
-        "world_map.html"
-    )
+    is_admin = session.get('username') == 'admin'
+    return render_template('world_map.html', is_admin=is_admin)
 @app.route('/')
 @app.route('/biet_m')
 def beit_m():
@@ -94,9 +176,8 @@ def hnot():
 @app.route('/')
 @app.route('/index')
 def index():
-    return render_template(
-        "index.html"
-    )
+    is_admin = session.get('username') == 'admin'
+    return render_template('index.html', is_admin=is_admin)
 @app.route('/')
 @app.route('/isof')
 def isof():
@@ -138,5 +219,6 @@ def דוקרבמחשב():
     return render_template(
         "דו קרב מחשב.html"
     )
-if __name__ == "__main__" :
-    app.run(host="0.0.0.0",port = 8000)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=True)
