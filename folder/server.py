@@ -1,16 +1,17 @@
 from flask import Flask, render_template, request, jsonify, session
 import json
 import os
+from pymongo import MongoClient
 from waitress import serve
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Required for session management
 
-# Ensure data directory exists
-os.makedirs('data', exist_ok=True)
-PLAYER_DATA_FILE = 'data/playerdata.json'
-USER_DATA_FILE = 'data/userpassword.json'
+client = MongoClient('mongodb+srv://avrahamgen:eJXt7AKUDanPNPkl@cluster0.hobhy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+db = client['game_database']  # Create/use a database named 'game_database'
+players_collection = db['players']  # Collection for player data
+users_collection = db['users']    # Collection for user data'
 
 # Helper function to read player data
 def read_player_data():
@@ -20,47 +21,50 @@ def read_player_data():
     return []
 
 # Helper function to write player data
-def write_player_data(data):
+def write_player_data(data, player_name):
+    player = {'name': player_name}
+    data['player'] = player
     with open(PLAYER_DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def ensure_admin_exists():
-    try:
-        with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
-            users_data = json.load(f)
-    except FileNotFoundError:
-        users_data = {'users': []}
-
-    # Remove any existing admin user
-    users_data['users'] = [user for user in users_data['users'] if user['username'] != 'admin']
-    
-    # Add admin user with password '123'
-    admin_password = generate_password_hash('123')
-    users_data['users'].append({
-        'username': 'admin',
-        'password': admin_password
-    })
-
-    with open(USER_DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(users_data, f, ensure_ascii=False, indent=4)
+    # Check if admin exists
+    admin_user = users_collection.find_one({'username': 'admin'})
+    if admin_user:
+        # Update admin password if user exists
+        users_collection.update_one(
+            {'username': 'admin'},
+            {'$set': {'password': generate_password_hash('123')}}
+        )
+    else:
+        # Create new admin user
+        users_collection.insert_one({
+            'username': 'admin',
+            'password': generate_password_hash('123')
+        })
 
 # Call this when the server starts
 ensure_admin_exists()
 
+
+
 @app.route('/api/players', methods=['GET'])
 def get_players():
-    return jsonify(read_player_data())
+    players = list(players_collection.find({}, {'_id': 0}))  # Exclude MongoDB _id field
+    return jsonify(players)
+
 
 @app.route('/api/players', methods=['POST'])
 def save_players():
     data = request.get_json()
-    write_player_data(data)
+    # Remove existing players and insert new data
+    players_collection.delete_many({})
+    if data:  # Check if data is not empty
+        players_collection.insert_many(data)
     return jsonify({"status": "success"})
-
 @app.route('/api/player/<name>', methods=['GET'])
 def get_player(name):
-    players = read_player_data()
-    player = next((p for p in players if p.get('name') == name), None)
+    player = players_collection.find_one({'name': name}, {'_id': 0})
     if player:
         return jsonify(player)
     return jsonify({}), 404
@@ -68,50 +72,51 @@ def get_player(name):
 @app.route('/api/player/<name>', methods=['POST'])
 def update_player(name):
     data = request.get_json()
-    players = read_player_data()
+    data['name'] = name  # Ensure the name matches the URL parameter
     
-    # Find and update or add the player
-    player_index = next((i for i, p in enumerate(players) if p.get('name') == name), None)
-    if player_index is not None:
-        players[player_index] = data
-    else:
-        players.append(data)
-    
-    write_player_data(players)
+    # Update or insert the player data
+    players_collection.update_one(
+        {'name': name},
+        {'$set': data},
+        upsert=True
+    )
     return jsonify({"status": "success"})
+
+def create_new_player(username):
+    player_data = {
+        'name': username,
+        # Add any default player properties here
+        'experience': 0,
+        'level': 1,
+        # Add other default player properties as needed
+    }
+    players_collection.insert_one(player_data)
+    return player_data
 
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
-
+    
     if not username or not password:
         return jsonify({'message': 'חסרים שם משתמש או סיסמה'}), 400
 
-    # Don't allow registration of admin username
     if username.lower() == 'admin':
         return jsonify({'message': 'שם משתמש זה שמור למערכת'}), 400
 
-    try:
-        with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
-            users_data = json.load(f)
-    except FileNotFoundError:
-        users_data = {'users': []}
-
     # Check if username already exists
-    if any(user['username'] == username for user in users_data['users']):
+    if users_collection.find_one({'username': username}):
         return jsonify({'message': 'שם המשתמש כבר קיים במערכת'}), 400
 
-    # Hash the password and store the new user
-    hashed_password = generate_password_hash(password)
-    users_data['users'].append({
+    # Create new user
+    users_collection.insert_one({
         'username': username,
-        'password': hashed_password
+        'password': generate_password_hash(password)
     })
 
-    with open(USER_DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(users_data, f, ensure_ascii=False, indent=4)
+    # Create a new player profile for the user
+    create_new_player(username)
 
     return jsonify({'message': 'ההרשמה בוצעה בהצלחה'}), 200
 
@@ -124,14 +129,7 @@ def login():
     if not username or not password:
         return jsonify({'message': 'חסרים שם משתמש או סיסמה'}), 400
 
-    try:
-        with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
-            users_data = json.load(f)
-    except FileNotFoundError:
-        return jsonify({'message': 'שגיאה במערכת'}), 500
-
-    # Find user and verify password
-    user = next((user for user in users_data['users'] if user['username'] == username), None)
+    user = users_collection.find_one({'username': username})
     if user and check_password_hash(user['password'], password):
         session['username'] = username
         return jsonify({'message': 'התחברת בהצלחה'}), 200
@@ -144,7 +142,6 @@ def statt_new():
     return render_template(
         "statt new.html"
     )
-@app.route('/')
 @app.route('/world_map')
 def world_map():
     is_admin = session.get('username') == 'admin'
@@ -221,4 +218,4 @@ def דוקרבמחשב():
     )
 
 if __name__ == "__main__":
-    serve(app, host="0.0.0.0", port=8000)
+    serve(app, host="0.0.0.0", port=8000, threads=8)
