@@ -91,7 +91,7 @@
         let draggedElement = null;
         let offsetX, offsetY;
         const isAdmin = {{ 'true' if is_admin else 'false' }};
-
+        function admintrue() {isAdmin=!isadmin}
         document.querySelectorAll('.location-button').forEach(button => {
             if (isAdmin) {
                 button.addEventListener('mousedown', startDragging);
@@ -183,10 +183,6 @@
                 draggedElement.style.top = y + 'px';
             }
         }
-        function admintrue() {
-    isAdmin=!isadmin
-}
-
         function stopDragging() {
             if (draggedElement) {
                 draggedElement.style.cursor = 'move';
