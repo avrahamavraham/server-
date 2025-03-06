@@ -91,7 +91,7 @@
         let draggedElement = null;
         let offsetX, offsetY;
         const isAdmin = {{ 'true' if is_admin else 'false' }};
-        function admintrue() {isAdmin=!isAdmin}
+
         document.querySelectorAll('.location-button').forEach(button => {
             if (isAdmin) {
                 button.addEventListener('mousedown', startDragging);
@@ -183,6 +183,7 @@
                 draggedElement.style.top = y + 'px';
             }
         }
+
         function stopDragging() {
             if (draggedElement) {
                 draggedElement.style.cursor = 'move';
@@ -263,7 +264,7 @@
 
             document.getElementById('map').appendChild(newSquare);
         }
-
+        function admintrue() {isadmin=!isadmin}
         function saveChanges() {
             if (!isAdmin) {
                 alert('רק מנהל יכול לשמור שינויים');

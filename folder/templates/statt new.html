@@ -33,7 +33,7 @@
             width: 80%;
             max-width: 300px;
         }
-        #registerButton, #loginButton, #startButton, #backgroundButton {
+        #loginButton, #registerButton, #startButton, #backgroundButton {
             background-color: #0066cc;
             color: white;
             border: none;
@@ -53,6 +53,20 @@
             font-size: 2em;
             color: #009900;
         }
+        .message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
     </style>
 </head>
 <body>
@@ -64,6 +78,7 @@
             <input type="password" id="passwordInput" placeholder="סיסמה">
             <button id="loginButton">התחבר</button>
             <button id="registerButton">הרשמה</button>
+            <div id="message" class="message"></div>
         </div>
 
         <div class="game-container" id="gameContainer">
@@ -107,65 +122,52 @@
             reader.readAsDataURL(file);
         });
 
-        document.getElementById('registerButton').addEventListener('click', async function() {
-            const username = document.getElementById('playerNameInput').value;
-            const password = document.getElementById('passwordInput').value;
-            
-            if (!username || !password) {
-                alert('נא למלא שם משתמש וסיסמה');
-                return;
-            }
-
-            const response = await fetch('/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            if (response.ok) {
-                alert('ההרשמה בוצעה בהצלחה! אנא התחבר');
-            } else {
-                const data = await response.json();
-                alert(data.message || 'שגיאה בהרשמה');
-            }
+        document.getElementById('registerButton').addEventListener('click', function() {
+            // Redirect to registration page
+            window.location.href = '/register-page';
         });
 
         document.getElementById('loginButton').addEventListener('click', async function() {
             const username = document.getElementById('playerNameInput').value;
             const password = document.getElementById('passwordInput').value;
+            const messageElement = document.getElementById('message');
             
             if (!username || !password) {
-                alert('נא למלא שם משתמש וסיסמה');
+                showMessage('נא למלא שם משתמש וסיסמה', 'error');
                 return;
             }
 
-            const response = await fetch('/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            if (response.ok) {
-                currentUser = username;
-                document.getElementById('loginContainer').style.display = 'none';
-                document.getElementById('gameContainer').style.display = 'block';
-                const randomMessage = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
-                const personalizedMessage = randomMessage.replace('{name}', username);
-                document.getElementById('welcomeMessage').textContent = personalizedMessage;
-                document.getElementById('welcomeMessage').style.display = 'block';
-            } else {
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
                 const data = await response.json();
-                alert(data.message || 'שגיאה בהתחברות');
+                
+                if (response.ok) {
+                    currentUser = username;
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('gameContainer').style.display = 'block';
+                    const randomMessage = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+                    const personalizedMessage = randomMessage.replace('{name}', username);
+                    document.getElementById('welcomeMessage').textContent = personalizedMessage;
+                    document.getElementById('welcomeMessage').style.display = 'block';
+                } else {
+                    showMessage(data.message || 'שגיאה בהתחברות', 'error');
+                }
+            } catch (error) {
+                showMessage('שגיאת התחברות לשרת', 'error');
+                console.error(error);
             }
         });
 
         document.getElementById('startButton').addEventListener('click', function() {
             if (!currentUser) {
-                alert('נא להתחבר תחילה');
+                showMessage('נא להתחבר תחילה', 'error');
                 return;
             }
             
@@ -185,6 +187,13 @@
                 }, 1500); // Wait 1.5 seconds to show the welcome message
             }
         });
+
+        function showMessage(text, type) {
+            const messageElement = document.getElementById('message');
+            messageElement.textContent = text;
+            messageElement.className = `message ${type}`;
+            messageElement.style.display = 'block';
+        }
 
         // Load background image if previously set
         window.onload = function() {
